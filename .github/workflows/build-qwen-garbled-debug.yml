@@ -1,0 +1,51 @@
+name: Build Qwen garbled-text debug installer
+
+on:
+  push:
+    branches:
+      - fix/qwen3-asr-garbled-text
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install engine dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ./engine
+
+      - name: Run Qwen runtime tests
+        shell: pwsh
+        run: python -m pytest engine/tests/recognition/test_qwen_runtime.py -q
+
+      - name: Build Windows installer
+        shell: pwsh
+        run: npm run dist:win
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nola-Translator-1.0.2-Qwen-Debug
+          path: release/Nola-Translator-1.0.2-Setup-x64.exe
+          if-no-files-found: error
+          retention-days: 7
