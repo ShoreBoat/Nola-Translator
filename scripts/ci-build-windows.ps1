@@ -17,6 +17,16 @@ Assert-NativeSuccess 'Application build'
 $basePython = (& python -c 'import sys; print(sys.executable)').Trim()
 Assert-NativeSuccess 'Locate Python'
 & "$PSScriptRoot/build-cpu-engine.ps1" -BasePython $basePython
+
+# Run the focused ASR regression against the same Python environment that was
+# just used to build the packaged engine.  Install pytest only after the private
+# runtime has been assembled so the test runner is not copied into the installer.
+$runtimeBuildPython = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts\runtime-build\cpu\Scripts\python.exe'
+& $runtimeBuildPython -m pip install 'pytest==9.1.1'
+Assert-NativeSuccess 'Install Python regression test runner'
+& $runtimeBuildPython -m pytest 'engine\tests\recognition\test_qwen_batch_decode_regression.py' -q
+Assert-NativeSuccess 'Qwen ASR regression test'
+
 & "$PSScriptRoot/fetch-llama-cpu.ps1"
 # Build separate x64 EXE and MSI installers.
 & node "$PSScriptRoot/ci-package-config.cjs"
