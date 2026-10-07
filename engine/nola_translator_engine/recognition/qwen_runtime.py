@@ -228,8 +228,12 @@ class QwenRuntime:
 
         sequences = output.sequences if hasattr(output, "sequences") else output
         generated = sequences[:, inputs["input_ids"].shape[1] :]
-        decoded = pipeline.processor.decode(generated, skip_special_tokens=True)
-        raw = decoded[0] if isinstance(decoded, list) and decoded else decoded
+        decoded = pipeline.processor.batch_decode(
+            generated,
+            skip_special_tokens=True,
+            clean_up_tokenization_spaces=False,
+        )
+        raw = decoded[0] if decoded else ""
         if not isinstance(raw, str):
             raw = ""
         _trace_replacement("decoded", raw)
