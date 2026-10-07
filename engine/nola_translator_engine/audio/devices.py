@@ -82,6 +82,22 @@ def _friendly_loopback_name(name: str) -> str:
     return re.sub(r"\s*\[Loopback\]\s*$", "", name, flags=re.IGNORECASE).strip()
 
 
+def _clean_device_name(name: str, kind: DeviceKind, backend_index: int) -> str:
+    """Return a UI-safe device name without hiding a Windows/PortAudio decoding failure.
+
+    WASAPI names should already arrive as Unicode. U+FFFD here means the replacement
+    character was introduced before the renderer saw the name, so there is no reliable
+    text-only way to reconstruct the original device name. Do not expose the corrupted
+    string to the UI; use a deterministic fallback that still lets the user select the
+    endpoint and gives support a useful index to identify it.
+    """
+    normalized = unicodedata.normalize("NFC", name).strip()
+    if normalized and "\ufffd" not in normalized and all(ord(ch) not in (0, 0xFFFE, 0xFFFF) for ch in normalized):
+        return normalized
+    label = "system output" if kind == "systemOutput" else "microphone"
+    return f"WASAPI {label} ({backend_index})"
+
+
 def _stable_device_id(kind: DeviceKind, name: str, sample_rate: int, channels: int) -> str:
     normalized = " ".join(unicodedata.normalize("NFKC", name).casefold().split())
     signature = f"wasapi|{kind}|{normalized}|{sample_rate}|{channels}".encode("utf-8")
@@ -90,7 +106,7 @@ def _stable_device_id(kind: DeviceKind, name: str, sample_rate: int, channels: i
 
 
 def _record(info: dict[str, Any], kind: DeviceKind, is_default: bool) -> AudioDeviceRecord:
-    name = str(info["name"])
+    name = _clean_device_name(str(info["name"]), kind, int(info["index"]))
     if kind == "systemOutput":
         name = _friendly_loopback_name(name)
     sample_rate = round(float(info["defaultSampleRate"]))
