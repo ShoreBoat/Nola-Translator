@@ -28,15 +28,16 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Install engine dependencies
+      - name: Install engine and test dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ./engine
+          python -m pip install -e ./engine pytest
 
-      - name: Run Qwen runtime tests
+      - name: Run Qwen ASR regression tests
         shell: pwsh
-        run: python -m pytest engine/tests/recognition/test_qwen_runtime.py -q
+        run: |
+          python -m pytest engine/tests/recognition/test_qwen_batch_decode_regression.py engine/tests/recognition/test_qwen_runtime.py -q
 
       - name: Build Windows installer
         shell: pwsh
