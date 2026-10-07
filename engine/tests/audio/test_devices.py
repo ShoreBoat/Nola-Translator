@@ -88,6 +88,30 @@ def test_enumerates_default_loopback_and_real_microphones() -> None:
     assert backend.terminated is True
 
 
+def test_corrupted_device_name_uses_safe_fallback_without_leaking_replacement_characters() -> None:
+    backend = FakePyAudio()
+    backend.native_devices[0]["name"] = "������"
+    devices = enumerate_wasapi_devices(lambda: backend)
+
+    microphone = next(item for item in devices if item.kind == "microphone" and item.backend_index == 27)
+    assert "\ufffd" not in microphone.name
+    assert microphone.name == "WASAPI microphone (27)"
+
+
+def test_corrupted_names_keep_stable_id_basis_independent_of_display_fallback() -> None:
+    first = FakePyAudio(moved_indices=False)
+    second = FakePyAudio(moved_indices=True)
+    first.native_devices[0]["name"] = "���设备"
+    second.native_devices[0]["name"] = "���设备"
+
+    before = enumerate_wasapi_devices(lambda: first)
+    after = enumerate_wasapi_devices(lambda: second)
+
+    before_mic = next(item for item in before if item.name.startswith("WASAPI microphone"))
+    after_mic = next(item for item in after if item.name.startswith("WASAPI microphone"))
+    assert before_mic.device_id == after_mic.device_id
+
+
 def test_stable_ids_do_not_use_temporary_portaudio_indices() -> None:
     before = enumerate_wasapi_devices(lambda: FakePyAudio(moved_indices=False))
     after = enumerate_wasapi_devices(lambda: FakePyAudio(moved_indices=True))
