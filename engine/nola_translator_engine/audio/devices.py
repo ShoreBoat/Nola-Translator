@@ -106,13 +106,17 @@ def _stable_device_id(kind: DeviceKind, name: str, sample_rate: int, channels: i
 
 
 def _record(info: dict[str, Any], kind: DeviceKind, is_default: bool) -> AudioDeviceRecord:
-    name = _clean_device_name(str(info["name"]), kind, int(info["index"]))
+    raw_name = str(info["name"])
+    name = _clean_device_name(raw_name, kind, int(info["index"]))
     if kind == "systemOutput":
         name = _friendly_loopback_name(name)
     sample_rate = round(float(info["defaultSampleRate"]))
     channels = max(1, int(info["maxInputChannels"]))
     return AudioDeviceRecord(
-        device_id=_stable_device_id(kind, name, sample_rate, channels),
+        # Keep the ID derived from the original endpoint name. If the display name has to
+        # fall back because PortAudio already supplied U+FFFD, including the temporary
+        # backend index in the ID would make an otherwise stable endpoint look new.
+        device_id=_stable_device_id(kind, unicodedata.normalize("NFC", raw_name).strip(), sample_rate, channels),
         backend_index=int(info["index"]),
         name=name,
         kind=kind,
